@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Claude Code Skills</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #171b22;
+    --panel-2: #1e242d;
+    --border: #2a313c;
+    --text: #e6e9ef;
+    --muted: #9aa4b2;
+    --accent: #d97757;
+    --accent-2: #6ea8fe;
+    --ok: #3fb950;
+    --danger: #f85149;
+    --shadow: 0 8px 30px rgba(0,0,0,.45);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2230 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 32px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    backdrop-filter: blur(8px);
+    background: rgba(14,17,22,.72);
+    z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .logo {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: grid; place-items: center; font-size: 20px;
+    background: linear-gradient(135deg, var(--accent), #b85c40);
+  }
+  .brand h1 { font-size: 18px; margin: 0; font-weight: 650; }
+  .brand p { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+  .lang-switch {
+    display: inline-flex; border: 1px solid var(--border);
+    border-radius: 999px; overflow: hidden; background: var(--panel);
+  }
+  .lang-switch button {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 7px 16px; cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: .15s;
+  }
+  .lang-switch button.active { background: var(--accent); color: #fff; }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 34px 24px 80px; }
+  .intro-head { margin-bottom: 26px; }
+  .intro-head h2 { margin: 0 0 6px; font-size: 24px; }
+  .intro-head p { margin: 0; color: var(--muted); }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0 30px;
+  }
+  .btn {
+    border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); padding: 11px 18px; border-radius: 10px;
+    cursor: pointer; font-size: 14px; font-weight: 600; transition: .15s;
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+  }
+  .btn:hover { border-color: var(--accent-2); transform: translateY(-1px); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #c46647; }
+  .btn.danger { color: var(--danger); border-color: #5a2d2d; }
+  .btn.danger:hover { background: #2a1818; border-color: var(--danger); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; cursor: pointer; transition: .18s;
+    position: relative; overflow: hidden;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: var(--shadow); }
+  .card .ic { font-size: 28px; }
+  .card h3 { margin: 12px 0 6px; font-size: 17px; }
+  .card .cmd { color: var(--accent-2); font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; }
+  .card p { margin: 10px 0 0; color: var(--muted); font-size: 13.5px; }
+  .card .more { margin-top: 14px; color: var(--accent); font-size: 13px; font-weight: 600; }
+
+  /* Overlay / modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+    width: 100%; max-width: 720px; max-height: 86vh; overflow: auto;
+    box-shadow: var(--shadow);
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    background: var(--panel);
+  }
+  .modal-head h3 { margin: 0; font-size: 17px; }
+  .modal-head .x { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
+  .modal-body { padding: 22px; }
+  .modal-body h4 { margin: 20px 0 8px; font-size: 15px; color: var(--accent); }
+  .modal-body h4:first-child { margin-top: 0; }
+  .modal-body table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 13px; }
+  .modal-body th, .modal-body td { border: 1px solid var(--border); padding: 7px 9px; text-align: left; vertical-align: top; }
+  .modal-body th { background: var(--panel-2); color: var(--text); }
+  .modal-body td { color: var(--muted); }
+  .modal-body ol, .modal-body ul { margin: 6px 0 14px; padding-left: 22px; }
+  .modal-body li { margin: 4px 0; color: var(--muted); }
+  .modal-body li b, .modal-body p b { color: var(--text); }
+  .modal-body code {
+    background: var(--panel-2); padding: 1px 6px; border-radius: 5px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--accent-2);
+  }
+  .note { background: var(--panel-2); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 6px; font-size: 13px; color: var(--muted); margin: 12px 0; }
+
+  /* input + command box */
+  .field label { display: block; font-size: 13.5px; margin-bottom: 7px; color: var(--text); }
+  .field input {
+    width: 100%; padding: 11px 13px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 14px; font-family: ui-monospace, Menlo, monospace;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .field .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .cmdbox {
+    position: relative; background: #0b0e13; border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 14px; margin-top: 14px;
+  }
+  .cmdbox pre {
+    margin: 0; white-space: pre-wrap; word-break: break-all;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12.8px; color: #d4e2ff;
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .modal-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 30px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">⚡</div>
+    <div>
+      <h1 data-i18n="appTitle"></h1>
+      <p data-i18n="appSub"></p>
+    </div>
+  </div>
+  <div class="lang-switch">
+    <button id="zhBtn" class="active" onclick="setLang('zh')">中文</button>
+    <button id="enBtn" onclick="setLang('en')">EN</button>
+  </div>
+</header>
+
+<main>
+  <div class="intro-head">
+    <h2 data-i18n="heroTitle"></h2>
+    <p data-i18n="heroSub"></p>
+  </div>
+
+  <div class="cards" id="cards"></div>
+</main>
+
+<footer><span data-i18n="footer"></span></footer>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle"></h3>
+      <button class="x" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+/* ===== Source location of this skills repo (auto-detected from this page) ===== */
+let _p = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, ""); // drop the html filename
+if (/^\/[A-Za-z]:/.test(_p)) _p = _p.slice(1);                         // windows file:// → strip leading slash
+const SRC = _p || ".";
+
+/* ===== Skills data (bilingual) ===== */
+const SKILLS = [
+  {
+    id: "vibecoding",
+    dir: "vibecoding",
+    icon: "🚀",
+    cmd: "/vibecoding",
+    name: { zh: "Vibecoding 全栈开发流程", en: "Vibecoding Full-Stack Workflow" },
+    tagline: {
+      zh: "人 + AI 结对，用最短可验证步长，把想法落地成可运行、可部署的全栈项目。",
+      en: "Human + AI pairing, advancing in the shortest verifiable steps to turn an idea into runnable, deployable full-stack code."
+    },
+    doc: { zh: "docs/vibecoding流程.md", en: "docs/vibecoding-flow.en.md" },
+    intro: {
+      zh: {
+        summary: "驱动「人 + AI」结对，按 <b>需求澄清 → 技术栈选型 → 架构设计 → 脚手架 → 垂直切片增量实现 → 自测验证 → 评审 → 部署交付</b> 的节奏推进。调用时让你自选技术栈与协作模式（个人 / 团队），并内置搭配合理性检查。",
+        stages: [
+          ["阶段 0 · 启动", "一批问清协作模式 / 后端语言 / 前端 / 范围；数据库·ORM·鉴权·部署用推荐默认值确认。选型后强制过一遍「搭配合理性检查」。"],
+          ["阶段 1 · 需求澄清与切片", "拆成用户故事，划 MVP 边界与「不做清单」，切成可独立演示的垂直切片。"],
+          ["阶段 2 · 架构与脚手架", "写 DECISIONS.md，用官方脚手架起项目，先打通端到端最小骨架。"],
+          ["阶段 3 · 增量实现", "对每个切片：取一片 → 实现 → 自测 → 提交。一次只推进一片。"],
+          ["阶段 4 · 验证与硬化", "走查核心故事，补关键测试，处理边界 / 错误态，做安全与性能自查。"],
+          ["阶段 5 · 评审与交付", "个人版：自审 + 部署 + 线上冒烟。团队版：分支 / PR / CI / 约定外显。"]
+        ],
+        principle: "贯穿原则：可运行优先、小步可回滚、决策留痕、先对齐再动手、AI 是结对工程师而非甩手掌柜。"
+      },
+      en: {
+        summary: "Drives a <b>human + AI</b> pair through <b>requirements clarification → tech-stack selection → architecture → scaffolding → vertical-slice incremental implementation → self-testing → review → deployment</b>. On invocation you choose the tech stack and collaboration mode (solo / team), with a built-in combination sanity check.",
+        stages: [
+          ["Stage 0 · Kickoff", "Clarify mode / backend language / frontend / scope in one batch; confirm DB·ORM·auth·deployment with recommended defaults. After selection, run the combination sanity check."],
+          ["Stage 1 · Clarify & slice", "Break into user stories, draw the MVP boundary and a won't-do list, cut into independently demoable vertical slices."],
+          ["Stage 2 · Architecture & scaffolding", "Write DECISIONS.md, bootstrap with official scaffolds, wire a minimal end-to-end skeleton first."],
+          ["Stage 3 · Incremental implementation", "Per slice: take one → implement → self-test → commit. Advance one slice at a time."],
+          ["Stage 4 · Verify & harden", "Walk core stories, add key tests, handle edges / error states, do security & performance checks."],
+          ["Stage 5 · Review & delivery", "Solo: self-review + deploy + live smoke-test. Team: branches / PR / CI / externalized conventions."]
+        ],
+        principle: "Principles throughout: runnable first, small rollback-able steps, leave a decision trail, align before acting, AI is a pairing engineer not a hands-off delegate."
+      }
+    }
+  }
+];
+
+/* ===== i18n strings ===== */
+const I18N = {
+  zh: {
+    appTitle: "Claude Code 技能库",
+    appSub: "本地技能的安装与说明面板",
+    heroTitle: "技能卡片",
+    heroSub: "点击卡片查看技能介绍；介绍里可把该技能导入到全局或某个项目。导入版本跟随当前界面语言。",
+    importGlobal: "导入全局配置",
+    importProject: "导入项目级目录",
+    clearConfig: "清除配置",
+    viewIntro: "查看介绍 →",
+    viewDocs: "查看详细介绍 →",
+    installHead: "安装这个技能",
+    footer: "所有操作都会生成命令供你在终端执行，页面本身不会改动你的文件系统。",
+    importGlobalTitle: "导入全局配置",
+    importProjectTitle: "导入项目级目录",
+    globalLabel: "全局配置目录",
+    projectLabel: "项目根目录",
+    globalHint: "留空则使用默认：~/.claude/skills",
+    projectHint: "留空则使用默认：.（当前目录），技能会装到 <项目>/.claude/skills",
+    langNote: "当前界面为中文，将导入 <b>中文版</b> 技能（SKILL.md）。",
+    generate: "生成命令",
+    cmdTitle: "复制并在终端执行",
+    cmdNote: "页面无法直接执行 shell 命令。请复制下面的命令，在终端运行。命令为<b>干净覆盖</b>：先删旧目录再拷贝，安装后只保留所选语言的 SKILL.md。",
+    copy: "复制",
+    copied: "已复制 ✓",
+    back: "返回",
+    close: "关闭",
+    clearTitle: "清除配置",
+    clearLabel: "要清除的技能目录所在位置",
+    clearHint: "留空则使用默认：~/.claude/skills（将删除其中的 vibecoding）",
+    clearWarn: "⚠️ 这会删除已安装的技能目录。请确认路径无误后再执行生成的命令。",
+    clearGen: "生成清除命令"
+  },
+  en: {
+    appTitle: "Claude Code Skills",
+    appSub: "Install & docs panel for local skills",
+    heroTitle: "Skill cards",
+    heroSub: "Click a card to read the skill intro; from there you can import it globally or into a project. The imported version follows the current UI language.",
+    importGlobal: "Import global config",
+    importProject: "Import to a project",
+    clearConfig: "Clear config",
+    viewIntro: "View intro →",
+    viewDocs: "View full docs →",
+    installHead: "Install this skill",
+    footer: "Every action generates a command for you to run in a terminal; the page itself never touches your filesystem.",
+    importGlobalTitle: "Import global config",
+    importProjectTitle: "Import to a project",
+    globalLabel: "Global config directory",
+    projectLabel: "Project root directory",
+    globalHint: "Leave empty to use the default: ~/.claude/skills",
+    projectHint: "Leave empty to use the default: . (current dir); the skill installs to <project>/.claude/skills",
+    langNote: "UI is in English, so the <b>English version</b> (SKILL.md) will be imported.",
+    generate: "Generate command",
+    cmdTitle: "Copy and run in a terminal",
+    cmdNote: "The page cannot execute shell commands. Copy the command below and run it in a terminal. It is a <b>clean overwrite</b>: removes the old directory first, then copies, keeping only the chosen-language SKILL.md.",
+    copy: "Copy",
+    copied: "Copied ✓",
+    back: "Back",
+    close: "Close",
+    clearTitle: "Clear config",
+    clearLabel: "Location holding the installed skill directory",
+    clearHint: "Leave empty to use the default: ~/.claude/skills (will remove vibecoding inside it)",
+    clearWarn: "⚠️ This deletes the installed skill directory. Verify the path before running the generated command.",
+    clearGen: "Generate clear command"
+  }
+};
+
+let lang = "zh";
+
+function t(key) { return I18N[lang][key]; }
+
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  document.getElementById("zhBtn").classList.toggle("active", l === "zh");
+  document.getElementById("enBtn").classList.toggle("active", l === "en");
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  renderCards();
+  if (overlay.classList.contains("show") && currentModal) currentModal();
+}
+
+/* ===== Cards ===== */
+function renderCards() {
+  const wrap = document.getElementById("cards");
+  wrap.innerHTML = "";
+  SKILLS.forEach(s => {
+    const el = document.createElement("div");
+    el.className = "card";
+    el.onclick = () => openIntro(s.id);
+    el.innerHTML = `
+      <div class="ic">${s.icon}</div>
+      <h3>${s.name[lang]}</h3>
+      <div class="cmd">${s.cmd}</div>
+      <p>${s.tagline[lang]}</p>
+      <div class="more">${t("viewIntro")}</div>`;
+    wrap.appendChild(el);
+  });
+}
+
+/* ===== Modal infrastructure ===== */
+const overlay = document.getElementById("overlay");
+const modalTitle = document.getElementById("modalTitle");
+const modalBody = document.getElementById("modalBody");
+let currentModal = null; // re-render fn for language switch
+
+function showModal(renderFn) { currentModal = renderFn; renderFn(); overlay.classList.add("show"); }
+function closeModal() { overlay.classList.remove("show"); currentModal = null; }
+overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+/* ===== Intro modal ===== */
+let selectedId = null;
+
+function openIntro(id) {
+  selectedId = id;
+  const s = SKILLS.find(x => x.id === id);
+  showModal(() => {
+    const info = s.intro[lang];
+    modalTitle.textContent = s.name[lang];
+    modalBody.innerHTML = `
+      <p>${info.summary}</p>
+      <p style="font-size:13px;color:var(--muted)">${lang === "zh" ? "调用命令" : "Invoke with"}: <code>${s.cmd}</code></p>
+      <div class="actions">
+        <a class="btn" href="${s.doc[lang]}" target="_blank" rel="noopener"><span>📖</span><span>${t("viewDocs")}</span></a>
+      </div>
+      <h4>${t("installHead")}</h4>
+      <div class="actions">
+        <button class="btn primary" onclick="openImport('global')"><span>🌐</span><span>${t("importGlobal")}</span></button>
+        <button class="btn" onclick="openImport('project')"><span>📁</span><span>${t("importProject")}</span></button>
+        <button class="btn danger" onclick="openClear()"><span>🧹</span><span>${t("clearConfig")}</span></button>
+      </div>`;
+  });
+}
+
+/* ===== Import modal ===== */
+function buildInstallCmd(dest, dir) {
+  // dest = directory that will contain the skill folder
+  const base = `${SRC}/${dir}`;
+  const target = `${dest}/${dir}`;
+  if (lang === "zh") {
+    // install Chinese SKILL.md, drop the English variant
+    return `mkdir -p ${dest} && \\\n  rm -rf ${target} && \\\n  cp -R ${base} ${dest}/ && \\\n  rm -f ${target}/SKILL.en.md`;
+  }
+  // install English: overwrite SKILL.md with the .en version
+  return `mkdir -p ${dest} && \\\n  rm -rf ${target} && \\\n  cp -R ${base} ${dest}/ && \\\n  mv -f ${target}/SKILL.en.md ${target}/SKILL.md`;
+}
+
+function currentSkill() { return SKILLS.find(x => x.id === selectedId); }
+
+function openImport(scope) {
+  const isGlobal = scope === "global";
+  const s = currentSkill();
+  showModal(() => {
+    modalTitle.textContent = `${s.name[lang]} · ${isGlobal ? t("importGlobalTitle") : t("importProjectTitle")}`;
+    modalBody.innerHTML = `
+      <div class="field">
+        <label>${isGlobal ? t("globalLabel") : t("projectLabel")}</label>
+        <input id="dirInput" type="text" placeholder="${isGlobal ? "~/.claude/skills" : "."}" />
+        <div class="hint">${isGlobal ? t("globalHint") : t("projectHint")}</div>
+      </div>
+      <div class="note">${t("langNote")}</div>
+      <div class="modal-foot">
+        <button class="btn" onclick="openIntro(selectedId)">${t("back")}</button>
+        <button class="btn primary" onclick="genImport('${scope}')">${t("generate")}</button>
+      </div>`;
+  });
+}
+
+function genImport(scope) {
+  const isGlobal = scope === "global";
+  const raw = document.getElementById("dirInput").value.trim();
+  let dest;
+  if (isGlobal) {
+    dest = raw || "~/.claude/skills";
+  } else {
+    const root = raw || ".";
+    dest = `${root.replace(/\/+$/, "")}/.claude/skills`;
+  }
+  const cmd = buildInstallCmd(dest, currentSkill().dir);
+  showCommand(cmd, () => openImport(scope));
+}
+
+/* ===== Clear modal ===== */
+function openClear() {
+  const s = currentSkill();
+  showModal(() => {
+    modalTitle.textContent = `${s.name[lang]} · ${t("clearTitle")}`;
+    modalBody.innerHTML = `
+      <div class="field">
+        <label>${t("clearLabel")}</label>
+        <input id="clearInput" type="text" placeholder="~/.claude/skills" />
+        <div class="hint">${t("clearHint")}</div>
+      </div>
+      <div class="note">${t("clearWarn")}</div>
+      <div class="modal-foot">
+        <button class="btn" onclick="openIntro(selectedId)">${t("back")}</button>
+        <button class="btn danger" onclick="genClear()">${t("clearGen")}</button>
+      </div>`;
+  });
+}
+
+function genClear() {
+  const raw = document.getElementById("clearInput").value.trim();
+  const dest = raw || "~/.claude/skills";
+  const cmd = `rm -rf ${dest.replace(/\/+$/, "")}/${currentSkill().dir}`;
+  showCommand(cmd, openClear);
+}
+
+/* ===== Command result view ===== */
+function showCommand(cmd, backFn) {
+  showModal(() => {
+    modalTitle.textContent = t("cmdTitle");
+    modalBody.innerHTML = `
+      <div class="note">${t("cmdNote")}</div>
+      <div class="cmdbox"><pre id="cmdText"></pre></div>
+      <div class="modal-foot">
+        <button class="btn" id="backBtn">${t("back")}</button>
+        <button class="btn primary" id="copyBtn">${t("copy")}</button>
+      </div>`;
+    document.getElementById("cmdText").textContent = cmd;
+    document.getElementById("backBtn").onclick = backFn;
+    document.getElementById("copyBtn").onclick = function () {
+      navigator.clipboard.writeText(cmd).then(() => {
+        this.textContent = t("copied");
+        setTimeout(() => { this.textContent = t("copy"); }, 1500);
+      });
+    };
+  });
+}
+
+/* ===== init ===== */
+setLang("zh");
+</script>
+</body>
+</html>
