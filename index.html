@@ -191,6 +191,12 @@ let _p = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, ""); // drop 
 if (/^\/[A-Za-z]:/.test(_p)) _p = _p.slice(1);                         // windows file:// → strip leading slash
 const SRC = _p || ".";
 
+/* ===== OS / shell detection ===== */
+const IS_WIN = /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent + " " + (navigator.platform || ""));
+let cmdShell = IS_WIN ? "powershell" : "bash";   // selected terminal for generated commands
+const toPosix = p => p.replace(/\\/g, "/");        // backslash → forward slash (bash can't take \)
+const psPath  = p => toPosix(p).replace(/^~(?=\/|$)/, "$HOME");  // ~ → $HOME for PowerShell
+
 /* ===== Skills data (bilingual) ===== */
 const SKILLS = [
   {
@@ -256,7 +262,9 @@ const I18N = {
     langNote: "当前界面为中文，将导入 <b>中文版</b> 技能（SKILL.md）。",
     generate: "生成命令",
     cmdTitle: "复制并在终端执行",
-    cmdNote: "页面无法直接执行 shell 命令。请复制下面的命令，在终端运行。命令为<b>干净覆盖</b>：先删旧目录再拷贝，安装后只保留所选语言的 SKILL.md。",
+    cmdNote: "页面无法直接执行 shell 命令。先按你的终端选对版本，再复制下面的命令运行。命令为<b>干净覆盖</b>：先删旧目录再拷贝，安装后只保留所选语言的 SKILL.md。",
+    shellPick: "选择你的终端：",
+    shellWinTip: "检测到 Windows：默认 PowerShell。用 Git Bash 请切到 Bash。路径里的反斜杠已自动转成正斜杠。",
     copy: "复制",
     copied: "已复制 ✓",
     back: "返回",
@@ -288,7 +296,9 @@ const I18N = {
     langNote: "UI is in English, so the <b>English version</b> (SKILL.md) will be imported.",
     generate: "Generate command",
     cmdTitle: "Copy and run in a terminal",
-    cmdNote: "The page cannot execute shell commands. Copy the command below and run it in a terminal. It is a <b>clean overwrite</b>: removes the old directory first, then copies, keeping only the chosen-language SKILL.md.",
+    cmdNote: "The page cannot execute shell commands. Pick your terminal, then copy and run the command below. It is a <b>clean overwrite</b>: removes the old directory first, then copies, keeping only the chosen-language SKILL.md.",
+    shellPick: "Pick your terminal:",
+    shellWinTip: "Windows detected: PowerShell by default. Switch to Bash for Git Bash. Backslashes in paths are auto-converted to forward slashes.",
     copy: "Copy",
     copied: "Copied ✓",
     back: "Back",
@@ -368,17 +378,31 @@ function openIntro(id) {
   });
 }
 
-/* ===== Import modal ===== */
-function buildInstallCmd(dest, dir) {
-  // dest = directory that will contain the skill folder
-  const base = `${SRC}/${dir}`;
-  const target = `${dest}/${dir}`;
-  if (lang === "zh") {
-    // install Chinese SKILL.md, drop the English variant
-    return `mkdir -p ${dest} && \\\n  rm -rf ${target} && \\\n  cp -R ${base} ${dest}/ && \\\n  rm -f ${target}/SKILL.en.md`;
+/* ===== Command builder (shell-aware) ===== */
+// spec = { type: "install" | "clear", dest, dir }
+function buildCmd(shell, spec) {
+  const dir = spec.dir;
+  if (shell === "bash") {
+    const dest = toPosix(spec.dest), src = toPosix(SRC), tgt = `${dest}/${dir}`;
+    if (spec.type === "clear") return `rm -rf ${tgt}`;
+    const last = lang === "zh"
+      ? `rm -f ${tgt}/SKILL.en.md`                      // 中文版：去掉英文文件
+      : `mv -f ${tgt}/SKILL.en.md ${tgt}/SKILL.md`;     // 英文版：用 .en 覆盖
+    return `mkdir -p ${dest} && \\\n  rm -rf ${tgt} && \\\n  cp -R ${src}/${dir} ${dest}/ && \\\n  ${last}`;
   }
-  // install English: overwrite SKILL.md with the .en version
-  return `mkdir -p ${dest} && \\\n  rm -rf ${target} && \\\n  cp -R ${base} ${dest}/ && \\\n  mv -f ${target}/SKILL.en.md ${target}/SKILL.md`;
+  // PowerShell
+  const dest = psPath(spec.dest), src = psPath(SRC), tgt = `${dest}/${dir}`;
+  if (spec.type === "clear") return `Remove-Item -Recurse -Force "${tgt}" -ErrorAction SilentlyContinue`;
+  const last = lang === "zh"
+    ? `Remove-Item -Force "$dst/SKILL.en.md" -ErrorAction SilentlyContinue`
+    : `Move-Item -Force "$dst/SKILL.en.md" "$dst/SKILL.md"`;
+  return [
+    `$dst = "${tgt}"`,
+    `New-Item -ItemType Directory -Force "${dest}" | Out-Null`,
+    `Remove-Item -Recurse -Force "$dst" -ErrorAction SilentlyContinue`,
+    `Copy-Item -Recurse -Force "${src}/${dir}" "${dest}/"`,
+    last
+  ].join("\n");
 }
 
 function currentSkill() { return SKILLS.find(x => x.id === selectedId); }
@@ -409,11 +433,10 @@ function genImport(scope) {
   if (isGlobal) {
     dest = raw || "~/.claude/skills";
   } else {
-    const root = raw || ".";
-    dest = `${root.replace(/\/+$/, "")}/.claude/skills`;
+    const root = (raw || ".").replace(/[\\/]+$/, "");
+    dest = `${root}/.claude/skills`;
   }
-  const cmd = buildInstallCmd(dest, currentSkill().dir);
-  showCommand(cmd, () => openImport(scope));
+  showCommand({ type: "install", dest, dir: currentSkill().dir }, () => openImport(scope));
 }
 
 /* ===== Clear modal ===== */
@@ -437,22 +460,34 @@ function openClear() {
 
 function genClear() {
   const raw = document.getElementById("clearInput").value.trim();
-  const dest = raw || "~/.claude/skills";
-  const cmd = `rm -rf ${dest.replace(/\/+$/, "")}/${currentSkill().dir}`;
-  showCommand(cmd, openClear);
+  const dest = (raw || "~/.claude/skills").replace(/[\\/]+$/, "");
+  showCommand({ type: "clear", dest, dir: currentSkill().dir }, openClear);
 }
 
-/* ===== Command result view ===== */
-function showCommand(cmd, backFn) {
+/* ===== Command result view (with shell toggle) ===== */
+function setShell(s) { cmdShell = s; if (currentModal) currentModal(); }
+
+function showCommand(spec, backFn) {
   showModal(() => {
+    const cmd = buildCmd(cmdShell, spec);
     modalTitle.textContent = t("cmdTitle");
     modalBody.innerHTML = `
+      <div style="margin-bottom:10px">
+        <span style="font-size:13px;color:var(--muted)">${t("shellPick")}</span>
+        <div class="lang-switch" style="margin-left:8px;vertical-align:middle">
+          <button id="shBash" onclick="setShell('bash')">Bash / Git Bash</button>
+          <button id="shPs" onclick="setShell('powershell')">PowerShell</button>
+        </div>
+      </div>
+      ${IS_WIN ? `<div class="note">${t("shellWinTip")}</div>` : ""}
       <div class="note">${t("cmdNote")}</div>
       <div class="cmdbox"><pre id="cmdText"></pre></div>
       <div class="modal-foot">
         <button class="btn" id="backBtn">${t("back")}</button>
         <button class="btn primary" id="copyBtn">${t("copy")}</button>
       </div>`;
+    document.getElementById("shBash").classList.toggle("active", cmdShell === "bash");
+    document.getElementById("shPs").classList.toggle("active", cmdShell === "powershell");
     document.getElementById("cmdText").textContent = cmd;
     document.getElementById("backBtn").onclick = backFn;
     document.getElementById("copyBtn").onclick = function () {
